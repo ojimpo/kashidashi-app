@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" fill="none">
+  <rect width="600" height="450" rx="42" fill="#7A5F95"/>
+  <circle cx="198" cy="160" r="50" fill="#EFE7F7"/>
+  <circle cx="400" cy="150" r="38" fill="#D8C8E7"/>
+  <rect x="138" y="242" width="322" height="96" rx="22" fill="#EFE7F7"/>
+  <text x="42" y="88" fill="#EFE7F7" font-family="Arial, sans-serif" font-size="44" font-weight="700">OTHER</text>
+</svg>
+

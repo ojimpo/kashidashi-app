@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>kashidashi</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Library Loan Tracker</p>
+          <h1>kashidashi</h1>
+          <p class="hero-copy">
+            図書館から借りた CD・本・DVD を API と同じデータモデルで管理します。
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="new-item-button" class="button button-primary" type="button">資料を登録</button>
+          <a class="button button-ghost" href="/docs" target="_blank" rel="noreferrer">API Docs</a>
+        </div>
+      </header>
+
+      <section class="summary-grid" id="summary-grid">
+        <article class="summary-card">
+          <span>総件数</span>
+          <strong id="count-total">0</strong>
+        </article>
+        <article class="summary-card">
+          <span>貸出中</span>
+          <strong id="count-active">0</strong>
+        </article>
+        <article class="summary-card">
+          <span>返却済</span>
+          <strong id="count-returned">0</strong>
+        </article>
+        <article class="summary-card">
+          <span>CD リッピング済</span>
+          <strong id="count-ripped">0</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <form id="filters-form" class="filters">
+          <label>
+            <span>表示</span>
+            <select name="view" id="view-select">
+              <option value="table">テーブル</option>
+              <option value="tiles">タイル</option>
+              <option value="timeline">ガント</option>
+            </select>
+          </label>
+          <label>
+            <span>種別</span>
+            <select name="type">
+              <option value="">すべて</option>
+              <option value="cd">CD</option>
+              <option value="book">本</option>
+              <option value="dvd">DVD</option>
+              <option value="other">その他</option>
+            </select>
+          </label>
+          <label>
+            <span>ステータス</span>
+            <select name="status">
+              <option value="">すべて</option>
+              <option value="not_ripped">未リッピング</option>
+              <option value="ripped">リッピング済</option>
+              <option value="not_returned">未返却</option>
+              <option value="returned">返却済</option>
+            </select>
+          </label>
+          <label>
+            <span>図書館</span>
+            <input name="library" type="text" placeholder="葛飾区立中央図書館">
+          </label>
+          <label>
+            <span>アーティスト</span>
+            <input name="artist" type="text" placeholder="スピッツ">
+          </label>
+          <label>
+            <span>著者</span>
+            <input name="author" type="text" placeholder="村上春樹">
+          </label>
+          <label>
+            <span>ソート</span>
+            <select name="sort">
+              <option value="borrowed_date_desc">貸出日 新しい順</option>
+              <option value="borrowed_date_asc">貸出日 古い順</option>
+              <option value="due_date_asc">返却期限 早い順</option>
+              <option value="due_date_desc">返却期限 遅い順</option>
+              <option value="updated_at_desc">更新日時 新しい順</option>
+            </select>
+          </label>
+          <label class="timeline-only">
+            <span>期間</span>
+            <select name="timelineScale" id="timeline-scale-select">
+              <option value="month">月</option>
+              <option value="week">週</option>
+            </select>
+          </label>
+          <div class="filter-actions">
+            <button class="button button-primary" type="submit">適用</button>
+            <button class="button button-ghost" id="reset-filters-button" type="button">リセット</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel" id="timeline-controls-panel">
+        <div class="timeline-toolbar">
+          <div class="timeline-nav">
+            <button id="timeline-prev" class="button button-ghost" type="button">前へ</button>
+            <button id="timeline-next" class="button button-ghost" type="button">次へ</button>
+          </div>
+          <p id="timeline-range-label" class="timeline-range-label"></p>
+        </div>
+      </section>
+
+      <section class="panel content-panel">
+        <div id="status-message" class="status-message" hidden></div>
+
+        <div id="table-view" class="view-panel">
+          <div class="table-wrap">
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>タイトル</th>
+                  <th>作成者</th>
+                  <th>種別</th>
+                  <th>図書館</th>
+                  <th>貸出日</th>
+                  <th>返却期限</th>
+                  <th>返却</th>
+                  <th>リッピング</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="tiles-view" class="view-panel" hidden>
+          <div id="tiles-grid" class="tiles-grid"></div>
+        </div>
+
+        <div id="timeline-view" class="view-panel" hidden>
+          <div id="timeline-grid" class="timeline-grid"></div>
+        </div>
+      </section>
+    </div>
+
+    <dialog id="item-dialog" class="modal">
+      <form id="item-form" method="dialog" class="modal-form">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Item Editor</p>
+            <h2 id="item-dialog-title">資料を登録</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog="item-dialog" aria-label="閉じる">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            <span>種別</span>
+            <select name="type" id="item-type-field" required>
+              <option value="cd">CD</option>
+              <option value="book">本</option>
+              <option value="dvd">DVD</option>
+              <option value="other">その他</option>
+            </select>
+          </label>
+          <label>
+            <span>タイトル</span>
+            <input name="title" type="text" required>
+          </label>
+          <label data-group="artist">
+            <span>アーティスト</span>
+            <input name="artist" type="text">
+          </label>
+          <label data-group="author">
+            <span>著者</span>
+            <input name="author" type="text">
+          </label>
+          <label>
+            <span>図書館</span>
+            <input name="library" type="text" placeholder="葛飾区立中央図書館">
+          </label>
+          <label>
+            <span>貸出日</span>
+            <input name="borrowed_date" type="date" required>
+          </label>
+          <label>
+            <span>返却期限</span>
+            <input name="due_date" type="date" required>
+          </label>
+          <label>
+            <span>画像 URL</span>
+            <input name="image_url" type="url" placeholder="https://example.com/item.jpg">
+          </label>
+          <label data-group="book">
+            <span>ISBN</span>
+            <input name="isbn" type="text">
+          </label>
+          <label data-group="dvd">
+            <span>TMDb ID</span>
+            <input name="tmdb_id" type="text">
+          </label>
+          <label data-group="cd">
+            <span>リッピング完了日時</span>
+            <input name="ripped_at" type="datetime-local">
+          </label>
+          <label data-group="cd">
+            <span>MusicBrainz Release ID</span>
+            <input name="musicbrainz_release_id" type="text">
+          </label>
+          <label data-group="cd">
+            <span>メタデータ: Artist</span>
+            <input name="metadata_artist" type="text">
+          </label>
+          <label data-group="cd">
+            <span>メタデータ: Album</span>
+            <input name="metadata_album" type="text">
+          </label>
+          <label class="full-width">
+            <span>メモ</span>
+            <textarea name="notes" rows="4"></textarea>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="button button-primary" type="submit">保存</button>
+          <button class="button button-ghost" type="button" data-close-dialog="item-dialog">キャンセル</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="returned-dialog" class="modal">
+      <form id="returned-form" method="dialog" class="modal-form compact-form">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Return Recorder</p>
+            <h2>返却完了を記録</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog="returned-dialog" aria-label="閉じる">×</button>
+        </div>
+        <label>
+          <span>返却日時（JST）</span>
+          <input name="returned_at" type="datetime-local" required>
+        </label>
+        <div class="modal-actions">
+          <button class="button button-primary" type="submit">記録</button>
+          <button class="button button-ghost" type="button" data-close-dialog="returned-dialog">キャンセル</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="ripped-dialog" class="modal">
+      <form id="ripped-form" method="dialog" class="modal-form compact-form">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Rip Recorder</p>
+            <h2>リッピング完了を記録</h2>
+          </div>
+          <button type="button" class="icon-button" data-close-dialog="ripped-dialog" aria-label="閉じる">×</button>
+        </div>
+        <label>
+          <span>リッピング日時（JST）</span>
+          <input name="ripped_at" type="datetime-local" required>
+        </label>
+        <label>
+          <span>MusicBrainz Release ID</span>
+          <input name="musicbrainz_release_id" type="text">
+        </label>
+        <label>
+          <span>メタデータ: Artist</span>
+          <input name="metadata_artist" type="text">
+        </label>
+        <label>
+          <span>メタデータ: Album</span>
+          <input name="metadata_album" type="text">
+        </label>
+        <div class="modal-actions">
+          <button class="button button-primary" type="submit">記録</button>
+          <button class="button button-ghost" type="button" data-close-dialog="ripped-dialog">キャンセル</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>
+

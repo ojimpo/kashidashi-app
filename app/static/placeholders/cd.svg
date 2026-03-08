@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" fill="none">
+  <rect width="600" height="450" rx="42" fill="#CC6231"/>
+  <circle cx="300" cy="225" r="132" fill="#F8E9E0"/>
+  <circle cx="300" cy="225" r="56" fill="#CC6231"/>
+  <circle cx="300" cy="225" r="18" fill="#F8E9E0"/>
+  <text x="42" y="88" fill="#F8E9E0" font-family="Arial, sans-serif" font-size="44" font-weight="700">CD</text>
+</svg>
+

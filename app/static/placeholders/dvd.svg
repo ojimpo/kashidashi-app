@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" fill="none">
+  <rect width="600" height="450" rx="42" fill="#4569B8"/>
+  <rect x="126" y="96" width="350" height="258" rx="24" fill="#E8EEFA"/>
+  <rect x="152" y="126" width="298" height="198" rx="18" fill="#BDD0F4"/>
+  <path d="M482 120L520 156V326L482 354V120Z" fill="#DDE7FB"/>
+  <text x="42" y="88" fill="#E8EEFA" font-family="Arial, sans-serif" font-size="44" font-weight="700">DVD</text>
+</svg>
+

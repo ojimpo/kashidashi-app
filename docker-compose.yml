@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "18080:18080"
+    environment:
+      KASHIDASHI_DATABASE_URL: sqlite:////data/kashidashi.db
+      PYTHONPATH: /app
+      KASHIDASHI_PORT: "18080"
+    volumes:
+      - .:/app
+      - ./data:/data
