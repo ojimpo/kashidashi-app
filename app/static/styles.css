@@ -14,7 +14,7 @@
   --dvd: #4569b8;
   --other: #7a5f95;
   --shadow: 0 18px 50px rgba(21, 35, 48, 0.08);
-  --radius: 24px;
+  --radius: 18px;
   font-family: "Avenir Next", "Hiragino Sans", "Yu Gothic", sans-serif;
 }
 
@@ -73,7 +73,7 @@ textarea {
   align-items: end;
   padding: 28px;
   border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 32px;
+  border-radius: 24px;
   background: linear-gradient(135deg, rgba(255, 248, 236, 0.92), rgba(232, 217, 188, 0.72));
   animation: fade-up 420ms ease-out;
 }
@@ -111,19 +111,23 @@ textarea {
 .item-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 10px;
 }
 
 .button,
 .icon-button {
   border: none;
-  border-radius: 999px;
+  border-radius: 14px;
   cursor: pointer;
   transition: transform 180ms ease, background 180ms ease, color 180ms ease;
 }
 
 .button {
-  padding: 12px 18px;
+  padding: 10px 16px;
+  flex: 0 0 auto;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .button:hover,
@@ -201,7 +205,7 @@ select,
 textarea {
   width: 100%;
   padding: 12px 14px;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid rgba(21, 35, 48, 0.12);
   background: rgba(255, 255, 255, 0.78);
   color: var(--ink);
@@ -235,7 +239,7 @@ textarea {
 .status-message {
   margin-bottom: 16px;
   padding: 14px 16px;
-  border-radius: 18px;
+  border-radius: 14px;
   background: rgba(69, 105, 184, 0.12);
   color: #29416d;
 }
@@ -273,6 +277,31 @@ textarea {
   color: var(--muted);
   font-size: 0.88rem;
   margin-top: 4px;
+}
+
+.external-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.external-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(21, 35, 48, 0.12);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--accent-strong);
+  font-size: 0.8rem;
+  line-height: 1.1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.external-link:hover {
+  background: rgba(191, 90, 42, 0.12);
 }
 
 .badge {
@@ -314,7 +343,7 @@ textarea {
   display: grid;
   gap: 14px;
   padding: 16px;
-  border-radius: 24px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.68);
   border: 1px solid rgba(255, 255, 255, 0.7);
 }
@@ -323,7 +352,7 @@ textarea {
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
-  border-radius: 18px;
+  border-radius: 14px;
   background: rgba(21, 35, 48, 0.06);
 }
 
@@ -352,7 +381,7 @@ textarea {
 .timeline-header-meta,
 .timeline-item-meta {
   padding: 12px 14px;
-  border-radius: 20px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.72);
 }
 
@@ -362,7 +391,7 @@ textarea {
   gap: 4px;
   min-height: 74px;
   padding: 8px 10px;
-  border-radius: 20px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.62);
 }
 
@@ -395,7 +424,7 @@ textarea {
   align-items: center;
   min-height: 86px;
   padding: 0 10px;
-  border-radius: 20px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.62);
 }
 
@@ -443,7 +472,7 @@ textarea {
 
 .empty-state {
   padding: 28px;
-  border-radius: 22px;
+  border-radius: 16px;
   text-align: center;
   color: var(--muted);
   background: rgba(255, 255, 255, 0.64);
@@ -463,7 +492,7 @@ textarea {
 
 .modal-form {
   padding: 24px;
-  border-radius: 30px;
+  border-radius: 22px;
   background: var(--panel-strong);
 }
 
@@ -483,6 +512,7 @@ textarea {
 .icon-button {
   width: 40px;
   height: 40px;
+  border-radius: 14px;
   background: rgba(21, 35, 48, 0.08);
   color: var(--ink);
 }
@@ -543,8 +573,25 @@ textarea {
     padding: 22px;
   }
 
+  .item-actions {
+    gap: 8px;
+  }
+
+  .item-actions .button {
+    padding: 8px 12px;
+    font-size: 0.92rem;
+  }
+
+  .external-links {
+    gap: 6px;
+  }
+
+  .external-link {
+    padding: 4px 9px;
+    font-size: 0.76rem;
+  }
+
   .timeline-scale-month {
     overflow-x: auto;
   }
 }
-

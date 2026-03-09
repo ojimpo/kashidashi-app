@@ -156,6 +156,53 @@ export function itemSupportsRip(item) {
   return item.type === "cd" && !item.returned_at;
 }
 
+function sanitizeIsbn(isbn) {
+  if (!isbn) {
+    return "";
+  }
+  return String(isbn).replaceAll(/[^0-9Xx]/g, "").toUpperCase();
+}
+
+function bookSearchQuery(item) {
+  return [item.title, item.author].filter(Boolean).join(" ").trim();
+}
+
+export function bookLinksForItem(item) {
+  if (item.type !== "book") {
+    return null;
+  }
+
+  const isbn = sanitizeIsbn(item.isbn);
+  if (isbn) {
+    return {
+      amazon: `https://www.amazon.co.jp/s?k=${encodeURIComponent(isbn)}`,
+      bookmeter: `https://bookmeter.com/search?keyword=${encodeURIComponent(isbn)}`,
+    };
+  }
+
+  const query = bookSearchQuery(item);
+  if (!query) {
+    return null;
+  }
+  return {
+    amazon: `https://www.amazon.co.jp/s?k=${encodeURIComponent(query)}`,
+    bookmeter: `https://bookmeter.com/search?keyword=${encodeURIComponent(query)}`,
+  };
+}
+
+function bookLinksMarkup(item) {
+  const links = bookLinksForItem(item);
+  if (!links) {
+    return "";
+  }
+  return `
+    <div class="external-links" aria-label="外部リンク">
+      <a class="external-link" href="${escapeAttribute(links.amazon)}" target="_blank" rel="noreferrer">Amazon</a>
+      <a class="external-link" href="${escapeAttribute(links.bookmeter)}" target="_blank" rel="noreferrer">読書メーター</a>
+    </div>
+  `;
+}
+
 function formatDate(value) {
   return value || "未設定";
 }
@@ -265,6 +312,7 @@ function renderTable() {
         <tr>
           <td>
             <div class="item-title">${escapeHtml(item.title)}</div>
+            ${bookLinksMarkup(item)}
             <div class="item-subline">${item.notes ? escapeHtml(item.notes) : "メモなし"}</div>
           </td>
           <td>${escapeHtml(creatorLabel(item))}</td>
@@ -294,6 +342,7 @@ function renderTiles() {
           <img class="tile-art" src="${escapeAttribute(item.image_url || placeholderForType(item.type))}" alt="${escapeAttribute(item.title)}">
           <div class="tile-meta">
             <strong>${escapeHtml(item.title)}</strong>
+            ${bookLinksMarkup(item)}
             <p>${escapeHtml(creatorLabel(item))}</p>
             <p>${typeLabel(item.type)} / ${escapeHtml(item.library)}</p>
             <p>貸出 ${formatDate(item.borrowed_date)} / 返却期限 ${formatDate(item.due_date)}</p>
