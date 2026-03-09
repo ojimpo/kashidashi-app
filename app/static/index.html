@@ -196,6 +196,10 @@
             <input name="due_date" type="date" required>
           </label>
           <label>
+            <span>返却日（JST）</span>
+            <input name="returned_at" type="date">
+          </label>
+          <label>
             <span>画像 URL</span>
             <input name="image_url" type="url" placeholder="https://example.com/item.jpg">
           </label>
@@ -246,8 +250,8 @@
           <button type="button" class="icon-button" data-close-dialog="returned-dialog" aria-label="閉じる">×</button>
         </div>
         <label>
-          <span>返却日時（JST）</span>
-          <input name="returned_at" type="datetime-local" required>
+          <span>返却日（JST）</span>
+          <input name="returned_at" type="date" required>
         </label>
         <div class="modal-actions">
           <button class="button button-primary" type="submit">記録</button>
@@ -288,7 +292,7 @@
       </form>
     </dialog>
 
-    <script type="module" src="/static/app.js"></script>
+    <script type="module" src="/static/app.js?v=20260309-3"></script>
   </body>
 </html>
 

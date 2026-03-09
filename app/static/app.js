@@ -136,15 +136,40 @@ export function toUtcIsoFromJstInput(value) {
   return new Date(`${value}:00+09:00`).toISOString().replace(".000Z", "Z");
 }
 
+export function toUtcIsoFromDateInput(value) {
+  if (!value) {
+    return null;
+  }
+  return `${value}T00:00:00Z`;
+}
+
 export function fromUtcToJstInputValue(value) {
   if (!value) {
     return "";
   }
   const parts = datePartsInJst(value);
-  if (!parts) {
+  if (parts) {
+    return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+  }
+
+  // Fallback for non-ISO strings (defensive)
+  const normalized = String(value).trim().replace(" ", "T");
+  const m = normalized.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$/);
+  if (m) {
+    return `${m[1]}T${m[2]}`;
+  }
+  return "";
+}
+
+export function fromUtcToJstDateInputValue(value) {
+  if (!value) {
     return "";
   }
-  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+  const parts = datePartsInJst(value);
+  if (parts) {
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+  return String(value).slice(0, 10);
 }
 
 export function placeholderForType(type) {
@@ -205,6 +230,13 @@ function bookLinksMarkup(item) {
 
 function formatDate(value) {
   return value || "未設定";
+}
+
+function dueDateLabel(item) {
+  if (item.returned_at) {
+    return "-";
+  }
+  return formatDate(item.due_date);
 }
 
 function creatorLabel(item) {
@@ -319,7 +351,7 @@ function renderTable() {
           <td>${typeLabel(item.type)}</td>
           <td>${escapeHtml(item.library)}</td>
           <td>${formatDate(item.borrowed_date)}</td>
-          <td>${formatDate(item.due_date)}</td>
+          <td>${dueDateLabel(item)}</td>
           <td>${returnBadge(item)}</td>
           <td>${ripBadge(item)}</td>
           <td>${actionsMarkup(item)}</td>
@@ -345,8 +377,8 @@ function renderTiles() {
             ${bookLinksMarkup(item)}
             <p>${escapeHtml(creatorLabel(item))}</p>
             <p>${typeLabel(item.type)} / ${escapeHtml(item.library)}</p>
-            <p>貸出 ${formatDate(item.borrowed_date)} / 返却期限 ${formatDate(item.due_date)}</p>
-            <p>返却: ${item.returned_at ? formatDateTimeJst(item.returned_at) : "未返却"}</p>
+            <p>貸出 ${formatDate(item.borrowed_date)} / 返却期限 ${dueDateLabel(item)}</p>
+            <p>返却: ${item.returned_at ? (toJstDateKey(item.returned_at) || formatDate(item.returned_at)) : "未返却"}</p>
             <p>リップ: ${item.ripped_at ? formatDateTimeJst(item.ripped_at) : "未記録"}</p>
           </div>
           ${actionsMarkup(item)}
@@ -464,7 +496,7 @@ function renderTimeline() {
           <div class="timeline-item-meta">
             <div class="item-title">${escapeHtml(item.title)}</div>
             <div class="item-subline">${escapeHtml(creatorLabel(item))}</div>
-            <div class="item-subline">${typeLabel(item.type)} / 貸出 ${formatDate(item.borrowed_date)} / 期限 ${formatDate(item.due_date)}</div>
+            <div class="item-subline">${typeLabel(item.type)} / 貸出 ${formatDate(item.borrowed_date)} / 期限 ${dueDateLabel(item)}</div>
             ${actionsMarkup(item)}
           </div>
           <div class="timeline-lane">
@@ -529,6 +561,7 @@ function fillItemForm(item) {
   form.elements.library.value = item.library || "";
   form.elements.borrowed_date.value = item.borrowed_date || "";
   form.elements.due_date.value = item.due_date || "";
+  form.elements.returned_at.value = fromUtcToJstDateInputValue(item.returned_at);
   form.elements.image_url.value = item.image_url || "";
   form.elements.isbn.value = item.isbn || "";
   form.elements.tmdb_id.value = item.tmdb_id || "";
@@ -550,6 +583,7 @@ function buildItemPayload(form) {
     library: form.elements.library.value.trim() || null,
     borrowed_date: form.elements.borrowed_date.value,
     due_date: form.elements.due_date.value,
+    returned_at: toUtcIsoFromDateInput(form.elements.returned_at.value),
     image_url: form.elements.image_url.value.trim() || null,
     isbn: form.elements.isbn.value.trim() || null,
     tmdb_id: form.elements.tmdb_id.value.trim() || null,
@@ -623,7 +657,7 @@ async function saveReturn(event) {
   event.preventDefault();
   try {
     await submitJson(`/api/items/${returnTargetId}`, "PATCH", {
-      returned_at: toUtcIsoFromJstInput(event.currentTarget.elements.returned_at.value),
+      returned_at: toUtcIsoFromDateInput(event.currentTarget.elements.returned_at.value),
     });
     document.getElementById("returned-dialog").close();
     await loadItems();
@@ -665,7 +699,7 @@ function openReturnDialog(itemId) {
   const item = getItemById(itemId);
   const form = document.getElementById("returned-form");
   form.reset();
-  form.elements.returned_at.value = fromUtcToJstInputValue(item?.returned_at) || fromUtcToJstInputValue(new Date().toISOString());
+  form.elements.returned_at.value = fromUtcToJstDateInputValue(item?.returned_at) || toDateKey(new Date());
   document.getElementById("returned-dialog").showModal();
 }
 
