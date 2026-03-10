@@ -60,6 +60,20 @@ def test_patch_item_updates_and_clears_nullable_fields(client) -> None:
     assert body["returned_at"] == "2026-03-10T03:00:00Z"
 
 
+def test_patch_partial_update_keeps_existing_ripped_at(client) -> None:
+    created = create_sample(client, ripped_at="2026-03-05T00:00:00Z")
+
+    response = client.patch(
+        f"/api/items/{created['id']}",
+        json={"metadata_artist": "Canonical Artist"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["metadata_artist"] == "Canonical Artist"
+    assert body["ripped_at"] == "2026-03-05T00:00:00Z"
+
+
 def test_delete_item_returns_204_and_removes_record(client) -> None:
     created = create_sample(client)
 

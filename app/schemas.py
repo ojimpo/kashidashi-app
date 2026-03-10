@@ -54,8 +54,10 @@ class ItemPayloadBase(BaseModel):
 
     @model_validator(mode="after")
     def normalize_datetimes(self) -> "ItemPayloadBase":
-        self.returned_at = ensure_utc(self.returned_at)
-        self.ripped_at = ensure_utc(self.ripped_at)
+        if "returned_at" in self.model_fields_set:
+            self.returned_at = ensure_utc(self.returned_at)
+        if "ripped_at" in self.model_fields_set:
+            self.ripped_at = ensure_utc(self.ripped_at)
         return self
 
 
