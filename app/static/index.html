@@ -48,7 +48,7 @@
             <select name="view" id="view-select">
               <option value="table">テーブル</option>
               <option value="tiles">タイル</option>
-              <option value="timeline">ガント</option>
+              <option value="calendar">カレンダー</option>
             </select>
           </label>
           <label>
@@ -93,12 +93,9 @@
               <option value="updated_at_desc">更新日時 新しい順</option>
             </select>
           </label>
-          <label class="timeline-only">
-            <span>期間</span>
-            <select name="timelineScale" id="timeline-scale-select">
-              <option value="month">月</option>
-              <option value="week">週</option>
-            </select>
+          <label class="calendar-only" hidden>
+            <span>（カレンダー専用 — 予約済）</span>
+            <input type="hidden" name="timelineScale" value="month">
           </label>
           <div class="filter-actions">
             <button class="button button-primary" type="submit">適用</button>
@@ -107,13 +104,13 @@
         </form>
       </section>
 
-      <section class="panel" id="timeline-controls-panel">
-        <div class="timeline-toolbar">
-          <div class="timeline-nav">
-            <button id="timeline-prev" class="button button-ghost" type="button">前へ</button>
-            <button id="timeline-next" class="button button-ghost" type="button">次へ</button>
+      <section class="panel" id="calendar-controls-panel">
+        <div class="calendar-toolbar">
+          <div class="calendar-nav">
+            <button id="calendar-prev" class="button button-ghost" type="button">前月</button>
+            <button id="calendar-next" class="button button-ghost" type="button">次月</button>
           </div>
-          <p id="timeline-range-label" class="timeline-range-label"></p>
+          <p id="calendar-range-label" class="calendar-range-label"></p>
         </div>
       </section>
 
@@ -145,8 +142,8 @@
           <div id="tiles-grid" class="tiles-grid"></div>
         </div>
 
-        <div id="timeline-view" class="view-panel" hidden>
-          <div id="timeline-grid" class="timeline-grid"></div>
+        <div id="calendar-view" class="view-panel" hidden>
+          <div id="calendar-grid"></div>
         </div>
       </section>
     </div>

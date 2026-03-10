@@ -13,17 +13,22 @@ import {
 
 test("parseUrlState keeps view and filter query parameters", () => {
   const state = parseUrlState(
-    "?view=timeline&timelineScale=week&timelineDate=2026-03-10&type=cd&status=not_ripped&artist=spitz&sort=due_date_asc",
+    "?view=calendar&timelineDate=2026-03-10&type=cd&status=not_ripped&artist=spitz&sort=due_date_asc",
   );
 
-  assert.equal(state.view, "timeline");
-  assert.equal(state.timelineScale, "week");
+  assert.equal(state.view, "calendar");
+  assert.equal(state.timelineScale, "month");
   assert.equal(state.timelineDate, "2026-03-10");
   assert.equal(state.type, "cd");
   assert.equal(state.status, "not_ripped");
   assert.equal(state.artist, "spitz");
   assert.equal(state.sort, "due_date_asc");
-  assert.match(buildUiSearch(state), /view=timeline/);
+  assert.match(buildUiSearch(state), /view=calendar/);
+});
+
+test("parseUrlState migrates legacy timeline view to calendar", () => {
+  const state = parseUrlState("?view=timeline");
+  assert.equal(state.view, "calendar");
 });
 
 test("JST input is converted to UTC ISO string", () => {

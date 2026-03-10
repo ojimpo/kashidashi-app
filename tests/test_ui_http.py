@@ -7,7 +7,7 @@ def test_index_page_contains_view_switches(client) -> None:
     assert response.status_code == 200
     assert 'value="table"' in response.text
     assert 'value="tiles"' in response.text
-    assert 'value="timeline"' in response.text
+    assert 'value="calendar"' in response.text
     assert '/static/app.js' in response.text
 
 

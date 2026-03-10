@@ -10,8 +10,7 @@ const DEFAULT_STATE = Object.freeze({
   sort: "borrowed_date_desc",
 });
 
-const VIEW_VALUES = new Set(["table", "tiles", "timeline"]);
-const TIMELINE_SCALE_VALUES = new Set(["month", "week"]);
+const VIEW_VALUES = new Set(["table", "tiles", "calendar"]);
 const TYPE_VALUES = new Set(["", "cd", "book", "dvd", "other"]);
 const STATUS_VALUES = new Set(["", "not_ripped", "ripped", "not_returned", "returned"]);
 const SORT_VALUES = new Set([
@@ -45,13 +44,10 @@ function normalizeChoice(value, allowedValues, fallback) {
 
 export function parseUrlState(search) {
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  const rawView = params.get("view") || DEFAULT_STATE.view;
   return {
-    view: normalizeChoice(params.get("view") || DEFAULT_STATE.view, VIEW_VALUES, DEFAULT_STATE.view),
-    timelineScale: normalizeChoice(
-      params.get("timelineScale") || DEFAULT_STATE.timelineScale,
-      TIMELINE_SCALE_VALUES,
-      DEFAULT_STATE.timelineScale,
-    ),
+    view: normalizeChoice(rawView === "timeline" ? "calendar" : rawView, VIEW_VALUES, DEFAULT_STATE.view),
+    timelineScale: "month",
     timelineDate: params.get("timelineDate") || DEFAULT_STATE.timelineDate,
     type: normalizeChoice(params.get("type") || "", TYPE_VALUES, ""),
     status: normalizeChoice(params.get("status") || "", STATUS_VALUES, ""),
@@ -300,9 +296,8 @@ function applyStateToForm() {
 function updateViewVisibility() {
   document.getElementById("table-view").hidden = state.view !== "table";
   document.getElementById("tiles-view").hidden = state.view !== "tiles";
-  document.getElementById("timeline-view").hidden = state.view !== "timeline";
-  document.getElementById("timeline-controls-panel").hidden = state.view !== "timeline";
-  document.querySelector(".timeline-only").hidden = state.view !== "timeline";
+  document.getElementById("calendar-view").hidden = state.view !== "calendar";
+  document.getElementById("calendar-controls-panel").hidden = state.view !== "calendar";
 }
 
 function updateSummary() {
@@ -388,132 +383,103 @@ function renderTiles() {
     .join("");
 }
 
-function periodRange() {
+function shiftCalendar(step) {
   const anchor = new Date(`${state.timelineDate}T00:00:00Z`);
-  if (Number.isNaN(anchor.getTime())) {
-    return periodRangeFromDate(new Date(`${DEFAULT_STATE.timelineDate}T00:00:00Z`), state.timelineScale);
-  }
-  return periodRangeFromDate(anchor, state.timelineScale);
-}
-
-function periodRangeFromDate(anchor, scale) {
-  if (scale === "week") {
-    const day = (anchor.getUTCDay() + 6) % 7;
-    const start = new Date(anchor);
-    start.setUTCDate(anchor.getUTCDate() - day);
-    const end = new Date(start);
-    end.setUTCDate(start.getUTCDate() + 6);
-    return { start, end, dayCount: 7 };
-  }
-  const start = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1));
-  const end = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 0));
-  const dayCount = end.getUTCDate();
-  return { start, end, dayCount };
-}
-
-function shiftTimeline(step) {
-  const anchor = new Date(`${state.timelineDate}T00:00:00Z`);
-  if (state.timelineScale === "week") {
-    anchor.setUTCDate(anchor.getUTCDate() + 7 * step);
-  } else {
-    anchor.setUTCMonth(anchor.getUTCMonth() + step);
-  }
+  anchor.setUTCMonth(anchor.getUTCMonth() + step);
   state.timelineDate = toDateKey(anchor);
   applyStateToForm();
   syncUrl();
-  renderTimeline();
-}
-
-function rangeLabel(start, end) {
-  return `${toDateKey(start)} から ${toDateKey(end)}`;
+  renderCalendar();
 }
 
 function timelineEndDate(item) {
   return item.returned_at ? toJstDateKey(item.returned_at) : item.due_date;
 }
 
-function dateList(start, end) {
-  const dates = [];
-  const cursor = new Date(start);
-  while (cursor <= end) {
-    dates.push(toDateKey(cursor));
+function calendarMonthGrid(anchor) {
+  const year = anchor.getUTCFullYear();
+  const month = anchor.getUTCMonth();
+  const firstOfMonth = new Date(Date.UTC(year, month, 1));
+  const lastOfMonth = new Date(Date.UTC(year, month + 1, 0));
+
+  // Start from Monday before (or on) the 1st
+  const startDay = (firstOfMonth.getUTCDay() + 6) % 7; // 0=Mon
+  const gridStart = new Date(firstOfMonth);
+  gridStart.setUTCDate(1 - startDay);
+
+  // Always fill 6 weeks (42 cells) for consistent grid height
+  const cells = [];
+  const cursor = new Date(gridStart);
+  for (let i = 0; i < 42; i++) {
+    cells.push({
+      dateKey: toDateKey(cursor),
+      day: cursor.getUTCDate(),
+      inMonth: cursor.getUTCMonth() === month,
+    });
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
-  return dates;
+  return { cells, year, month, firstOfMonth, lastOfMonth };
 }
 
-function dayLabel(dateKey) {
-  const date = new Date(`${dateKey}T00:00:00Z`);
-  return {
-    month: `${date.getUTCMonth() + 1}/${date.getUTCDate()}`,
-    weekday: ["月", "火", "水", "木", "金", "土", "日"][(date.getUTCDay() + 6) % 7],
-  };
-}
+const MAX_CHIPS_PER_DAY = 3;
 
-function renderTimeline() {
-  const node = document.getElementById("timeline-grid");
-  const { start, end, dayCount } = periodRange();
-  const dates = dateList(start, end);
-  document.getElementById("timeline-range-label").textContent = rangeLabel(start, end);
+function renderCalendar() {
+  const node = document.getElementById("calendar-grid");
+  const anchor = new Date(`${state.timelineDate}T00:00:00Z`);
+  if (Number.isNaN(anchor.getTime())) {
+    anchor.setTime(new Date().getTime());
+  }
+  const { cells, year, month } = calendarMonthGrid(anchor);
+  const todayKey = currentDateKey();
 
-  const visibleItems = items.filter((item) => {
+  const monthLabel = `${year}年${month + 1}月`;
+  document.getElementById("calendar-range-label").textContent = monthLabel;
+
+  // Build a map: dateKey -> [items]
+  const dayItemsMap = new Map();
+  for (const cell of cells) {
+    dayItemsMap.set(cell.dateKey, []);
+  }
+  for (const item of items) {
     const itemStart = item.borrowed_date;
     const itemEnd = timelineEndDate(item);
-    return itemEnd >= dates[0] && itemStart <= dates[dates.length - 1];
-  });
-
-  if (!visibleItems.length) {
-    node.innerHTML = '<div class="empty-state">この期間に重なる資料はありません。</div>';
-    return;
+    if (!itemStart) continue;
+    for (const cell of cells) {
+      if (cell.dateKey >= itemStart && cell.dateKey <= (itemEnd || itemStart)) {
+        dayItemsMap.get(cell.dateKey).push(item);
+      }
+    }
   }
 
-  const headerClass = state.timelineScale === "week" ? "timeline-scale-week" : "timeline-scale-month";
-  const headerMarkup = `
-    <div class="timeline-header">
-      <div class="timeline-header-meta">
-        <strong>タイトル</strong>
-      </div>
-      <div class="timeline-scale ${headerClass}" style="--day-count: ${dayCount}">
-        ${dates
-          .map((dateKey) => {
-            const label = dayLabel(dateKey);
-            return `<div class="timeline-day"><strong>${label.month}</strong><span>${label.weekday}</span></div>`;
-          })
-          .join("")}
-      </div>
-    </div>
-  `;
+  const weekdays = ["月", "火", "水", "木", "金", "土", "日"];
+  const headerMarkup = weekdays
+    .map((wd) => `<div class="calendar-weekday">${wd}</div>`)
+    .join("");
 
-  const rows = visibleItems
-    .map((item) => {
-      const rawStartIndex = dates.indexOf(item.borrowed_date);
-      const rawEndIndex = dates.indexOf(timelineEndDate(item));
-      const startIndex = rawStartIndex === -1 ? 0 : rawStartIndex;
-      const endIndex = rawEndIndex === -1 ? dates.length - 1 : rawEndIndex;
-      const cellMarkup = dates.map(() => '<div class="timeline-lane-cell"></div>').join("");
-      return `
-        <div class="timeline-row">
-          <div class="timeline-item-meta">
-            <div class="item-title">${escapeHtml(item.title)}</div>
-            <div class="item-subline">${escapeHtml(creatorLabel(item))}</div>
-            <div class="item-subline">${typeLabel(item.type)} / 貸出 ${formatDate(item.borrowed_date)} / 期限 ${dueDateLabel(item)}</div>
-            ${actionsMarkup(item)}
-          </div>
-          <div class="timeline-lane">
-            <div class="timeline-lane-grid ${state.timelineScale}" style="--day-count: ${dayCount}">
-              ${cellMarkup}
-            </div>
-            <div
-              class="timeline-bar ${item.type}"
-              style="left: calc(${(100 / dayCount) * startIndex}% + 10px); width: calc(${(100 / dayCount) * (endIndex - startIndex + 1)}% - 20px);"
-            ></div>
-          </div>
-        </div>
-      `;
+  const cellsMarkup = cells
+    .map((cell) => {
+      const classes = ["calendar-day"];
+      if (!cell.inMonth) classes.push("outside-month");
+      if (cell.dateKey === todayKey) classes.push("today");
+
+      const dayItems = dayItemsMap.get(cell.dateKey) || [];
+      const visibleItems = dayItems.slice(0, MAX_CHIPS_PER_DAY);
+      const extraCount = dayItems.length - MAX_CHIPS_PER_DAY;
+
+      const chipsMarkup = visibleItems
+        .map(
+          (item) =>
+            `<button class="calendar-item-chip ${item.type}" data-action="edit" data-id="${item.id}" type="button" title="${escapeAttribute(item.title)}">${escapeHtml(item.title)}</button>`,
+        )
+        .join("");
+
+      const moreMarkup = extraCount > 0 ? `<span class="calendar-more">+${extraCount}件</span>` : "";
+
+      return `<div class="${classes.join(" ")}"><span class="calendar-day-number">${cell.day}</span>${chipsMarkup}${moreMarkup}</div>`;
     })
     .join("");
 
-  node.innerHTML = headerMarkup + rows;
+  node.innerHTML = `<div class="calendar-grid">${headerMarkup}${cellsMarkup}</div>`;
 }
 
 function toggleItemFormFields() {
@@ -616,7 +582,7 @@ async function loadItems() {
   updateSummary();
   renderTable();
   renderTiles();
-  renderTimeline();
+  renderCalendar();
 }
 
 async function submitJson(url, method, payload) {
@@ -766,7 +732,7 @@ function bindEvents() {
         state[key] = form.elements.namedItem(key).value;
       }
     }
-    if (state.view !== "timeline") {
+    if (state.view !== "calendar") {
       state.timelineDate = DEFAULT_STATE.timelineDate;
     }
     updateViewVisibility();
@@ -775,20 +741,15 @@ function bindEvents() {
 
   document.getElementById("view-select").addEventListener("change", async (event) => {
     state.view = event.currentTarget.value;
-    if (state.view === "timeline" && !state.timelineDate) {
+    if (state.view === "calendar" && !state.timelineDate) {
       state.timelineDate = currentDateKey();
     }
     updateViewVisibility();
     await loadItems();
   });
 
-  document.getElementById("timeline-scale-select").addEventListener("change", async (event) => {
-    state.timelineScale = event.currentTarget.value;
-    await loadItems();
-  });
-
-  document.getElementById("timeline-prev").addEventListener("click", () => shiftTimeline(-1));
-  document.getElementById("timeline-next").addEventListener("click", () => shiftTimeline(1));
+  document.getElementById("calendar-prev").addEventListener("click", () => shiftCalendar(-1));
+  document.getElementById("calendar-next").addEventListener("click", () => shiftCalendar(1));
 
   document.getElementById("reset-filters-button").addEventListener("click", async () => {
     Object.assign(state, DEFAULT_STATE);
@@ -816,7 +777,7 @@ function bindEvents() {
 
   document.getElementById("table-view").addEventListener("click", handleActionClick);
   document.getElementById("tiles-view").addEventListener("click", handleActionClick);
-  document.getElementById("timeline-view").addEventListener("click", handleActionClick);
+  document.getElementById("calendar-view").addEventListener("click", handleActionClick);
 }
 
 async function init() {
