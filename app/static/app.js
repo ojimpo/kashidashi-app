@@ -437,6 +437,10 @@ function assignLanes(visibleItems, gridStartKey, gridEndKey) {
   });
 
   relevant.sort((a, b) => {
+    // Books first (they take longer to read)
+    const aBook = a.type === "book" ? 0 : 1;
+    const bBook = b.type === "book" ? 0 : 1;
+    if (aBook !== bBook) return aBook - bBook;
     if (a.borrowed_date !== b.borrowed_date) return a.borrowed_date < b.borrowed_date ? -1 : 1;
     const durA = (timelineEndDate(a) || a.borrowed_date).localeCompare(a.borrowed_date);
     const durB = (timelineEndDate(b) || b.borrowed_date).localeCompare(b.borrowed_date);
