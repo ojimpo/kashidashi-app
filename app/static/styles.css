@@ -459,8 +459,8 @@ textarea {
 .gantt-bar.dashed.dvd   { border-color: var(--dvd); }
 .gantt-bar.dashed.other { border-color: var(--other); }
 
-.gantt-bar.bar-start { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
-.gantt-bar.bar-end   { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+.gantt-bar.bar-start { border-top-left-radius: 4px; border-bottom-left-radius: 4px; margin-left: 2px; }
+.gantt-bar.bar-end   { border-top-right-radius: 4px; border-bottom-right-radius: 4px; margin-right: 2px; }
 
 .gantt-overflow {
   display: block;
