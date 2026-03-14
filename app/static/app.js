@@ -421,7 +421,43 @@ function calendarMonthGrid(anchor) {
   return { cells, year, month, firstOfMonth, lastOfMonth };
 }
 
-const MAX_CHIPS_PER_DAY = 3;
+const MAX_GANTT_LANES = 10;
+
+function assignLanes(visibleItems, gridStartKey, gridEndKey) {
+  const relevant = visibleItems.filter((item) => {
+    const start = item.borrowed_date;
+    const end = timelineEndDate(item) || start;
+    return start && end >= gridStartKey && start <= gridEndKey;
+  });
+
+  relevant.sort((a, b) => {
+    if (a.borrowed_date !== b.borrowed_date) return a.borrowed_date < b.borrowed_date ? -1 : 1;
+    const durA = (timelineEndDate(a) || a.borrowed_date).localeCompare(a.borrowed_date);
+    const durB = (timelineEndDate(b) || b.borrowed_date).localeCompare(b.borrowed_date);
+    return durB - durA; // longer first
+  });
+
+  const laneEnds = []; // laneEnds[i] = last occupied dateKey for lane i
+  const laneMap = new Map();
+  for (const item of relevant) {
+    const start = item.borrowed_date;
+    const end = timelineEndDate(item) || start;
+    let assigned = -1;
+    for (let i = 0; i < laneEnds.length; i++) {
+      if (laneEnds[i] < start) {
+        assigned = i;
+        break;
+      }
+    }
+    if (assigned === -1) {
+      assigned = laneEnds.length;
+      laneEnds.push("");
+    }
+    laneEnds[assigned] = end;
+    laneMap.set(item.id, assigned);
+  }
+  return { laneMap, laneCount: laneEnds.length };
+}
 
 function renderCalendar() {
   const node = document.getElementById("calendar-grid");
@@ -435,51 +471,113 @@ function renderCalendar() {
   const monthLabel = `${year}年${month + 1}月`;
   document.getElementById("calendar-range-label").textContent = monthLabel;
 
-  // Build a map: dateKey -> [items]
-  const dayItemsMap = new Map();
-  for (const cell of cells) {
-    dayItemsMap.set(cell.dateKey, []);
-  }
-  for (const item of items) {
-    const itemStart = item.borrowed_date;
-    const itemEnd = timelineEndDate(item);
-    if (!itemStart) continue;
-    for (const cell of cells) {
-      if (cell.dateKey >= itemStart && cell.dateKey <= (itemEnd || itemStart)) {
-        dayItemsMap.get(cell.dateKey).push(item);
-      }
-    }
-  }
+  const gridStartKey = cells[0].dateKey;
+  const gridEndKey = cells[cells.length - 1].dateKey;
+  const { laneMap, laneCount } = assignLanes(items, gridStartKey, gridEndKey);
+  const visibleLanes = Math.min(laneCount, MAX_GANTT_LANES);
 
   const weekdays = ["月", "火", "水", "木", "金", "土", "日"];
   const headerMarkup = weekdays
     .map((wd) => `<div class="calendar-weekday">${wd}</div>`)
     .join("");
 
-  const cellsMarkup = cells
-    .map((cell) => {
-      const classes = ["calendar-day"];
-      if (!cell.inMonth) classes.push("outside-month");
-      if (cell.dateKey === todayKey) classes.push("today");
+  const weeksMarkup = [];
+  for (let w = 0; w < 6; w++) {
+    const weekCells = cells.slice(w * 7, w * 7 + 7);
+    const weekStartKey = weekCells[0].dateKey;
+    const weekEndKey = weekCells[6].dateKey;
 
-      const dayItems = dayItemsMap.get(cell.dateKey) || [];
-      const visibleItems = dayItems.slice(0, MAX_CHIPS_PER_DAY);
-      const extraCount = dayItems.length - MAX_CHIPS_PER_DAY;
+    // Day numbers
+    const dayNumsMarkup = weekCells
+      .map((cell) => {
+        const cls = ["gantt-day-num"];
+        if (!cell.inMonth) cls.push("outside-month");
+        if (cell.dateKey === todayKey) cls.push("today");
+        return `<span class="${cls.join(" ")}">${cell.day}</span>`;
+      })
+      .join("");
 
-      const chipsMarkup = visibleItems
-        .map(
-          (item) =>
-            `<button class="calendar-item-chip ${item.type}" data-action="edit" data-id="${item.id}" type="button" title="${escapeAttribute(item.title)}">${escapeHtml(item.title)}</button>`,
-        )
-        .join("");
+    // Bars for this week
+    const barsMarkup = [];
+    for (const item of items) {
+      const lane = laneMap.get(item.id);
+      if (lane === undefined || lane >= MAX_GANTT_LANES) continue;
 
-      const moreMarkup = extraCount > 0 ? `<span class="calendar-more">+${extraCount}件</span>` : "";
+      const itemStart = item.borrowed_date;
+      const itemEnd = timelineEndDate(item) || itemStart;
+      if (!itemStart || itemEnd < weekStartKey || itemStart > weekEndKey) continue;
 
-      return `<div class="${classes.join(" ")}"><span class="calendar-day-number">${cell.day}</span>${chipsMarkup}${moreMarkup}</div>`;
-    })
-    .join("");
+      // Compute column range (1-based)
+      const startCol = itemStart <= weekStartKey ? 1 : weekCells.findIndex((c) => c.dateKey === itemStart) + 1;
+      const endCol = itemEnd >= weekEndKey ? 7 : weekCells.findIndex((c) => c.dateKey === itemEnd) + 1;
+      const isStart = itemStart >= weekStartKey;
+      const isEnd = itemEnd <= weekEndKey;
+      const isReturned = !!item.returned_at;
+      const gridRow = lane + 1;
+      const title = escapeAttribute(item.title);
+      const label = escapeHtml(item.title);
 
-  node.innerHTML = `<div class="calendar-grid">${headerMarkup}${cellsMarkup}</div>`;
+      if (isReturned || todayKey >= itemEnd) {
+        // Entirely solid
+        const cls = ["gantt-bar", item.type, "solid"];
+        if (isStart) cls.push("bar-start");
+        if (isEnd) cls.push("bar-end");
+        barsMarkup.push(
+          `<button class="${cls.join(" ")}" style="grid-column:${startCol}/${endCol + 1};grid-row:${gridRow}" data-action="edit" data-id="${item.id}" type="button" title="${title}">${label}</button>`,
+        );
+      } else if (todayKey < itemStart) {
+        // Entirely dashed (future)
+        const cls = ["gantt-bar", item.type, "dashed"];
+        if (isStart) cls.push("bar-start");
+        if (isEnd) cls.push("bar-end");
+        barsMarkup.push(
+          `<span class="${cls.join(" ")}" style="grid-column:${startCol}/${endCol + 1};grid-row:${gridRow}" data-action="edit" data-id="${item.id}" title="${title}" aria-hidden="true"></span>`,
+        );
+      } else if (todayKey >= weekStartKey && todayKey <= weekEndKey) {
+        // Split: solid up to today, dashed after
+        const todayCol = weekCells.findIndex((c) => c.dateKey === todayKey) + 1;
+        // Solid part
+        const solidCls = ["gantt-bar", item.type, "solid"];
+        if (isStart) solidCls.push("bar-start");
+        barsMarkup.push(
+          `<button class="${solidCls.join(" ")}" style="grid-column:${startCol}/${todayCol + 1};grid-row:${gridRow}" data-action="edit" data-id="${item.id}" type="button" title="${title}">${label}</button>`,
+        );
+        // Dashed part
+        if (todayCol < endCol) {
+          const dashedCls = ["gantt-bar", item.type, "dashed"];
+          if (isEnd) dashedCls.push("bar-end");
+          barsMarkup.push(
+            `<span class="${dashedCls.join(" ")}" style="grid-column:${todayCol + 1}/${endCol + 1};grid-row:${gridRow}" aria-hidden="true"></span>`,
+          );
+        }
+      } else if (todayKey > weekEndKey) {
+        // This week is entirely before today → solid
+        const cls = ["gantt-bar", item.type, "solid"];
+        if (isStart) cls.push("bar-start");
+        if (isEnd) cls.push("bar-end");
+        barsMarkup.push(
+          `<button class="${cls.join(" ")}" style="grid-column:${startCol}/${endCol + 1};grid-row:${gridRow}" data-action="edit" data-id="${item.id}" type="button" title="${title}">${label}</button>`,
+        );
+      } else {
+        // This week is entirely after today → dashed
+        const cls = ["gantt-bar", item.type, "dashed"];
+        if (isStart) cls.push("bar-start");
+        if (isEnd) cls.push("bar-end");
+        barsMarkup.push(
+          `<span class="${cls.join(" ")}" style="grid-column:${startCol}/${endCol + 1};grid-row:${gridRow}" data-action="edit" data-id="${item.id}" title="${title}" aria-hidden="true"></span>`,
+        );
+      }
+    }
+
+    const lanesStyle = visibleLanes > 0 ? `grid-template-rows:repeat(${visibleLanes},auto)` : "";
+    const overflowMarkup = laneCount > MAX_GANTT_LANES ? `<span class="gantt-overflow">+${laneCount - MAX_GANTT_LANES}件</span>` : "";
+
+    weeksMarkup.push(
+      `<div class="gantt-week"><div class="gantt-day-numbers">${dayNumsMarkup}</div><div class="gantt-lanes" style="${lanesStyle}">${barsMarkup.join("")}</div>${overflowMarkup}</div>`,
+    );
+  }
+
+  node.innerHTML = `<div class="gantt-calendar"><div class="gantt-header">${headerMarkup}</div>${weeksMarkup.join("")}</div>`;
 }
 
 function toggleItemFormFields() {

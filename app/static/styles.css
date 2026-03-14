@@ -366,16 +366,20 @@ textarea {
   color: var(--muted);
 }
 
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 1px;
-  background: var(--line);
+.gantt-calendar {
   border-radius: var(--radius);
   overflow: hidden;
+  background: var(--line);
+  display: grid;
+  gap: 1px;
 }
 
-.calendar-weekday {
+.gantt-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.gantt-header .calendar-weekday {
   padding: 10px 8px;
   background: rgba(255, 255, 255, 0.72);
   text-align: center;
@@ -384,56 +388,85 @@ textarea {
   font-weight: 600;
 }
 
-.calendar-day {
-  min-height: 96px;
-  padding: 6px 8px;
+.gantt-week {
   background: var(--panel);
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
 }
 
-.calendar-day.outside-month {
+.gantt-day-numbers {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+
+.gantt-day-num {
+  padding: 4px 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.gantt-day-num.outside-month {
   opacity: 0.35;
 }
 
-.calendar-day.today {
+.gantt-day-num.today {
   background: var(--accent-soft);
+  font-weight: 700;
+  color: var(--accent-strong);
 }
 
-.calendar-day-number {
-  font-size: 0.82rem;
-  color: var(--muted);
-  margin-bottom: 2px;
+.gantt-lanes {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px 0;
+  padding: 2px 0;
+  min-height: 4px;
 }
 
-.calendar-item-chip {
-  padding: 2px 6px;
-  border-radius: 4px;
+.gantt-bar {
+  height: 22px;
+  padding: 0 6px;
   font-size: 0.72rem;
+  line-height: 22px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: white;
   cursor: pointer;
   border: none;
   text-align: left;
-  width: 100%;
+  color: white;
+  border-radius: 0;
+  box-sizing: border-box;
 }
 
-.calendar-item-chip:hover {
-  filter: brightness(1.1);
+.gantt-bar:hover {
+  filter: brightness(1.12);
 }
 
-.calendar-item-chip.cd    { background: var(--cd); }
-.calendar-item-chip.book  { background: var(--book); }
-.calendar-item-chip.dvd   { background: var(--dvd); }
-.calendar-item-chip.other { background: var(--other); }
+.gantt-bar.solid.cd    { background: var(--cd); }
+.gantt-bar.solid.book  { background: var(--book); }
+.gantt-bar.solid.dvd   { background: var(--dvd); }
+.gantt-bar.solid.other { background: var(--other); }
 
-.calendar-more {
+.gantt-bar.dashed {
+  background: transparent;
+  border: 2px dashed;
+  color: transparent;
+  cursor: default;
+}
+
+.gantt-bar.dashed.cd    { border-color: var(--cd); }
+.gantt-bar.dashed.book  { border-color: var(--book); }
+.gantt-bar.dashed.dvd   { border-color: var(--dvd); }
+.gantt-bar.dashed.other { border-color: var(--other); }
+
+.gantt-bar.bar-start { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+.gantt-bar.bar-end   { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+
+.gantt-overflow {
+  display: block;
   font-size: 0.7rem;
   color: var(--muted);
-  padding: 1px 4px;
+  padding: 1px 8px;
 }
 
 .empty-state {
@@ -604,17 +637,15 @@ textarea {
   .items-table td:nth-child(5)::before { content: "貸出日"; }
   .items-table td:nth-child(6)::before { content: "返却期限"; }
 
-  .calendar-day {
-    min-height: 60px;
-    padding: 4px;
-  }
-
-  .calendar-day-number {
+  .gantt-day-num {
+    padding: 3px 4px;
     font-size: 0.72rem;
   }
 
-  .calendar-item-chip {
+  .gantt-bar {
+    height: 18px;
+    line-height: 18px;
     font-size: 0.62rem;
-    padding: 1px 4px;
+    padding: 0 4px;
   }
 }
