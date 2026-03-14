@@ -393,7 +393,13 @@ function shiftCalendar(step) {
 }
 
 function timelineEndDate(item) {
-  return item.returned_at ? toJstDateKey(item.returned_at) : item.due_date;
+  if (!item.returned_at) return item.due_date;
+  // returned_at is the moment of return — the item was last held the day before
+  const retDate = new Date(`${toJstDateKey(item.returned_at)}T00:00:00Z`);
+  retDate.setUTCDate(retDate.getUTCDate() - 1);
+  const prev = toDateKey(retDate);
+  // Don't go before borrowed_date (same-day borrow+return → single-day bar)
+  return prev < item.borrowed_date ? item.borrowed_date : prev;
 }
 
 function calendarMonthGrid(anchor) {
