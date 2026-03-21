@@ -6,12 +6,26 @@ from sqlalchemy import Enum, Index, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base, UTCDateTime
-from .domain import DEFAULT_LIBRARY, ItemType, utc_now
+from .domain import DEFAULT_LIBRARY, ItemSource, ItemType, MatchStatus, utc_now
 
 
 ITEM_TYPE_ENUM = Enum(
     ItemType,
     name="item_type",
+    native_enum=False,
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+
+ITEM_SOURCE_ENUM = Enum(
+    ItemSource,
+    name="item_source",
+    native_enum=False,
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+
+MATCH_STATUS_ENUM = Enum(
+    MatchStatus,
+    name="match_status",
     native_enum=False,
     values_callable=lambda enum_cls: [member.value for member in enum_cls],
 )
@@ -36,6 +50,13 @@ class Item(Base):
     tmdb_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_artist: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_album: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[ItemSource] = mapped_column(
+        ITEM_SOURCE_ENUM, nullable=False, default=ItemSource.LIBRARY, server_default="library", index=True
+    )
+    match_status: Mapped[MatchStatus] = mapped_column(
+        MATCH_STATUS_ENUM, nullable=False, default=MatchStatus.MATCHED, server_default="matched", index=True
+    )
+    rip_discid: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(

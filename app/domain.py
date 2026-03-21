@@ -14,6 +14,18 @@ class ItemType(StrEnum):
     OTHER = "other"
 
 
+class ItemSource(StrEnum):
+    LIBRARY = "library"
+    OWNED = "owned"
+    OTHER = "other"
+
+
+class MatchStatus(StrEnum):
+    MATCHED = "matched"
+    UNMATCHED = "unmatched"
+    PROPOSED = "proposed"
+
+
 class ItemStatus(StrEnum):
     NOT_RIPPED = "not_ripped"
     NOT_RETURNED = "not_returned"

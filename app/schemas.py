@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, model_validator
 
-from .domain import DEFAULT_LIBRARY, ItemSort, ItemType, ensure_utc
+from .domain import DEFAULT_LIBRARY, ItemSort, ItemSource, ItemType, MatchStatus, ensure_utc
 
 TEXT_FIELDS = (
     "title",
@@ -17,6 +17,7 @@ TEXT_FIELDS = (
     "tmdb_id",
     "metadata_artist",
     "metadata_album",
+    "rip_discid",
     "notes",
 )
 
@@ -37,6 +38,9 @@ class ItemPayloadBase(BaseModel):
     tmdb_id: str | None = None
     metadata_artist: str | None = None
     metadata_album: str | None = None
+    source: ItemSource | None = None
+    match_status: MatchStatus | None = None
+    rip_discid: str | None = None
     notes: str | None = None
 
     @field_validator(*TEXT_FIELDS, mode="before")
@@ -67,6 +71,8 @@ class ItemCreate(ItemPayloadBase):
     borrowed_date: date
     due_date: date
     library: str | None = DEFAULT_LIBRARY
+    source: ItemSource | None = ItemSource.LIBRARY
+    match_status: MatchStatus | None = MatchStatus.MATCHED
 
     @model_validator(mode="after")
     def apply_library_default(self) -> "ItemCreate":
@@ -98,6 +104,9 @@ class ItemRead(BaseModel):
     tmdb_id: str | None
     metadata_artist: str | None
     metadata_album: str | None
+    source: ItemSource
+    match_status: MatchStatus
+    rip_discid: str | None
     notes: str | None
     created_at: datetime
     updated_at: datetime

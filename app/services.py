@@ -8,7 +8,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .domain import DEFAULT_LIBRARY, ItemSort, ItemStatus, ItemType
+from .domain import DEFAULT_LIBRARY, ItemSort, ItemSource, ItemStatus, ItemType, MatchStatus
 from .models import Item
 from .schemas import ItemCreate, ItemUpdate
 
@@ -28,9 +28,12 @@ WRITABLE_FIELDS = (
     "tmdb_id",
     "metadata_artist",
     "metadata_album",
+    "source",
+    "match_status",
+    "rip_discid",
     "notes",
 )
-CD_ONLY_FIELDS = ("ripped_at", "musicbrainz_release_id", "metadata_artist", "metadata_album")
+CD_ONLY_FIELDS = ("ripped_at", "musicbrainz_release_id", "metadata_artist", "metadata_album", "rip_discid")
 BOOK_ONLY_FIELDS = ("isbn",)
 DVD_ONLY_FIELDS = ("tmdb_id",)
 TOKYO = ZoneInfo("Asia/Tokyo")
@@ -81,6 +84,12 @@ def get_item_or_404(session: Session, item_id: int) -> Item:
 def create_item(session: Session, payload: ItemCreate) -> Item:
     values = payload.model_dump()
     values["library"] = values.get("library") or DEFAULT_LIBRARY
+    values.setdefault("source", ItemSource.LIBRARY)
+    if values.get("source") is None:
+        values["source"] = ItemSource.LIBRARY
+    values.setdefault("match_status", MatchStatus.MATCHED)
+    if values.get("match_status") is None:
+        values["match_status"] = MatchStatus.MATCHED
     validate_item_state(values)
     ensure_not_duplicate(session, values)
 

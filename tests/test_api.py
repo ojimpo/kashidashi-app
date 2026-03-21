@@ -176,6 +176,67 @@ def test_filters_and_sorting(client) -> None:
     ]
 
 
+def test_new_item_has_default_source_and_match_status(client) -> None:
+    created = create_sample(client)
+
+    assert created["source"] == "library"
+    assert created["match_status"] == "matched"
+    assert created["rip_discid"] is None
+
+
+def test_create_item_with_explicit_source_and_match_status(client) -> None:
+    created = create_sample(client, source="owned", match_status="unmatched", rip_discid="abc123")
+
+    assert created["source"] == "owned"
+    assert created["match_status"] == "unmatched"
+    assert created["rip_discid"] == "abc123"
+
+
+def test_patch_match_status_to_proposed(client) -> None:
+    created = create_sample(client)
+    response = client.patch(
+        f"/api/items/{created['id']}",
+        json={"match_status": "proposed", "rip_discid": "disc-xyz"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["match_status"] == "proposed"
+    assert body["rip_discid"] == "disc-xyz"
+    assert body["source"] == "library"  # unchanged
+
+
+def test_source_defaults_to_library_when_omitted(client) -> None:
+    """Items created without source field default to 'library' (backward compat)."""
+    payload = make_item()
+    assert "source" not in payload or payload.get("source") is None
+    response = client.post("/api/items", json=payload)
+    assert response.status_code == 201
+    assert response.json()["source"] == "library"
+
+
+def test_create_rip_ledger_item_owned_unmatched(client) -> None:
+    """Rip ledger: create an owned CD with unmatched status (no library loan)."""
+    payload = make_item(
+        title="Unknown Album from Rip",
+        source="owned",
+        match_status="unmatched",
+        rip_discid="fedcba98",
+        ripped_at="2026-03-15T12:00:00Z",
+        metadata_artist="Rip Artist",
+        metadata_album="Unknown Album from Rip",
+    )
+    response = client.post("/api/items", json=payload)
+    assert response.status_code == 201
+    body = response.json()
+    assert body["source"] == "owned"
+    assert body["match_status"] == "unmatched"
+    assert body["rip_discid"] == "fedcba98"
+    assert body["ripped_at"] == "2026-03-15T12:00:00Z"
+    assert body["metadata_artist"] == "Rip Artist"
+    assert body["metadata_album"] == "Unknown Album from Rip"
+
+
 def test_updated_at_sort_prefers_recently_changed_item(client) -> None:
     first = create_sample(client, title="First")
     second = create_sample(client, title="Second", borrowed_date="2026-03-03", due_date="2026-03-16")
