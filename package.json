@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "test:ui": "node --test tests/ui.test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
   }
 }
-
