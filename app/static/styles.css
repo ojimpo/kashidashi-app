@@ -593,6 +593,8 @@ textarea {
   }
 
   .items-table {
+    display: block;
+    width: 100%;
     min-width: 0;
   }
 
@@ -609,6 +611,7 @@ textarea {
     display: grid;
     gap: 8px;
     padding: 14px;
+    min-width: 0;
     border-radius: var(--radius);
     background: rgba(255, 255, 255, 0.68);
     border: 1px solid rgba(255, 255, 255, 0.7);
@@ -617,6 +620,8 @@ textarea {
 
   .items-table td {
     padding: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
     border-bottom: none;
   }
 
