@@ -84,12 +84,8 @@ def get_item_or_404(session: Session, item_id: int) -> Item:
 def create_item(session: Session, payload: ItemCreate) -> Item:
     values = payload.model_dump()
     values["library"] = values.get("library") or DEFAULT_LIBRARY
-    values.setdefault("source", ItemSource.LIBRARY)
-    if values.get("source") is None:
-        values["source"] = ItemSource.LIBRARY
-    values.setdefault("match_status", MatchStatus.MATCHED)
-    if values.get("match_status") is None:
-        values["match_status"] = MatchStatus.MATCHED
+    values["source"] = values.get("source") or ItemSource.LIBRARY
+    values["match_status"] = values.get("match_status") or MatchStatus.MATCHED
     validate_item_state(values)
     ensure_not_duplicate(session, values)
 
