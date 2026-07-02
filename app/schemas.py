@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, field_serializer, field_validator, model_validator
 
-from .domain import DEFAULT_LIBRARY, ItemSort, ItemSource, ItemType, MatchStatus, ensure_utc
+from .domain import DEFAULT_LIBRARY, ItemSource, ItemType, MatchStatus, ensure_utc
 
 TEXT_FIELDS = (
     "title",
@@ -116,13 +116,4 @@ class ItemRead(BaseModel):
         if value is None:
             return None
         return ensure_utc(value).isoformat().replace("+00:00", "Z")
-
-
-class ItemListQuery(BaseModel):
-    type: ItemType | None = None
-    status: str | None = None
-    library: str | None = None
-    artist: str | None = None
-    author: str | None = None
-    sort: ItemSort = ItemSort.BORROWED_DATE_DESC
 
