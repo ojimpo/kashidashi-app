@@ -91,6 +91,26 @@ API ドキュメントは `http://localhost:18080/docs` で確認できます。
 
 ---
 
+## テスト
+
+バックエンド（pytest）:
+
+```bash
+pip install -r requirements.txt
+python -m pytest tests/
+```
+
+フロントエンドのユニットテスト（Node.js 標準の test runner）:
+
+```bash
+npm run test:ui
+```
+
+`tests/` には API・DB のテストに加えて、`scripts/` 配下の同期スクリプトの
+挙動を固定する characterization test も含まれています。
+
+---
+
 ## 将来の展望
 
 - **Last.fm との連携**：リッピング済み CD の `musicbrainz_release_id` をキーに Last.fm のスクロブルデータと紐づけ、「借りた CD を何回聴いたか」を追跡する
