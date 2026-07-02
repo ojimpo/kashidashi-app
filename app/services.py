@@ -38,6 +38,20 @@ BOOK_ONLY_FIELDS = ("isbn",)
 DVD_ONLY_FIELDS = ("tmdb_id",)
 TOKYO = ZoneInfo("Asia/Tokyo")
 
+# 種別ごとの作成者フィールド: (必須フィールド, 設定できないフィールド)
+PERSON_FIELDS_BY_TYPE = {
+    ItemType.BOOK: ("author", "artist"),
+    ItemType.CD: ("artist", "author"),
+    ItemType.DVD: ("artist", "author"),
+}
+
+# 各種別の専用フィールドグループ: (所有する種別, フィールド群, エラー文言のラベル。助詞「を」まで含む)
+EXCLUSIVE_FIELD_GROUPS = (
+    (ItemType.CD, CD_ONLY_FIELDS, "CD 用フィールドを"),
+    (ItemType.BOOK, BOOK_ONLY_FIELDS, "isbn を"),
+    (ItemType.DVD, DVD_ONLY_FIELDS, "tmdb_id を"),
+)
+
 
 def list_items(
     session: Session,
@@ -131,18 +145,14 @@ def sort_clause(sort: ItemSort) -> tuple[object, ...]:
 def validate_item_state(values: dict[str, object]) -> None:
     errors: list[str] = []
     item_type = values.get("type")
-    title = values.get("title")
-    library = values.get("library")
     borrowed_date = values.get("borrowed_date")
     due_date = values.get("due_date")
-    artist = values.get("artist")
-    author = values.get("author")
 
     if item_type is None:
         errors.append("type は必須です。")
-    if not title:
+    if not values.get("title"):
         errors.append("title は必須です。")
-    if not library:
+    if not values.get("library"):
         errors.append("library は必須です。")
     if borrowed_date is None:
         errors.append("borrowed_date は必須です。")
@@ -151,31 +161,8 @@ def validate_item_state(values: dict[str, object]) -> None:
     if isinstance(borrowed_date, date) and isinstance(due_date, date) and due_date < borrowed_date:
         errors.append("due_date は borrowed_date 以降の日付にしてください。")
 
-    if item_type == ItemType.BOOK:
-        if not author:
-            errors.append("book では author が必須です。")
-        if artist:
-            errors.append("book では artist を設定できません。")
-        errors.extend(require_empty(values, CD_ONLY_FIELDS, "book では CD 用フィールドを設定できません。"))
-        errors.extend(require_empty(values, DVD_ONLY_FIELDS, "book では tmdb_id を設定できません。"))
-    elif item_type == ItemType.CD:
-        if not artist:
-            errors.append("cd では artist が必須です。")
-        if author:
-            errors.append("cd では author を設定できません。")
-        errors.extend(require_empty(values, BOOK_ONLY_FIELDS, "cd では isbn を設定できません。"))
-        errors.extend(require_empty(values, DVD_ONLY_FIELDS, "cd では tmdb_id を設定できません。"))
-    elif item_type == ItemType.DVD:
-        if not artist:
-            errors.append("dvd では artist が必須です。")
-        if author:
-            errors.append("dvd では author を設定できません。")
-        errors.extend(require_empty(values, CD_ONLY_FIELDS, "dvd では CD 用フィールドを設定できません。"))
-        errors.extend(require_empty(values, BOOK_ONLY_FIELDS, "dvd では isbn を設定できません。"))
-    elif item_type == ItemType.OTHER:
-        errors.extend(require_empty(values, CD_ONLY_FIELDS, "other では CD 用フィールドを設定できません。"))
-        errors.extend(require_empty(values, BOOK_ONLY_FIELDS, "other では isbn を設定できません。"))
-        errors.extend(require_empty(values, DVD_ONLY_FIELDS, "other では tmdb_id を設定できません。"))
+    if item_type in ItemType:
+        errors.extend(type_specific_errors(values, item_type))
 
     for field_name in ("returned_at", "ripped_at"):
         field_value = values.get(field_name)
@@ -185,6 +172,21 @@ def validate_item_state(values: dict[str, object]) -> None:
 
     if errors:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=errors)
+
+
+def type_specific_errors(values: dict[str, object], item_type: ItemType) -> list[str]:
+    errors: list[str] = []
+    person_fields = PERSON_FIELDS_BY_TYPE.get(item_type)
+    if person_fields is not None:
+        required_field, forbidden_field = person_fields
+        if not values.get(required_field):
+            errors.append(f"{item_type} では {required_field} が必須です。")
+        if values.get(forbidden_field):
+            errors.append(f"{item_type} では {forbidden_field} を設定できません。")
+    for owner_type, fields, label in EXCLUSIVE_FIELD_GROUPS:
+        if owner_type != item_type:
+            errors.extend(require_empty(values, fields, f"{item_type} では {label}設定できません。"))
+    return errors
 
 
 def require_empty(values: dict[str, object], fields: tuple[str, ...], message: str) -> list[str]:
