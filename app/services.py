@@ -8,7 +8,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .domain import DEFAULT_LIBRARY, ItemSort, ItemSource, ItemStatus, ItemType, MatchStatus
+from .domain import ItemSort, ItemSource, ItemStatus, ItemType, MatchStatus
 from .models import Item
 from .schemas import ItemCreate, ItemUpdate
 
@@ -97,7 +97,6 @@ def get_item_or_404(session: Session, item_id: int) -> Item:
 
 def create_item(session: Session, payload: ItemCreate) -> Item:
     values = payload.model_dump()
-    values["library"] = values.get("library") or DEFAULT_LIBRARY
     values["source"] = values.get("source") or ItemSource.LIBRARY
     values["match_status"] = values.get("match_status") or MatchStatus.MATCHED
     validate_item_state(values)
