@@ -130,16 +130,17 @@ def delete_item(session: Session, item: Item) -> None:
     session.commit()
 
 
+SORT_CLAUSES: dict[ItemSort, tuple[object, ...]] = {
+    ItemSort.BORROWED_DATE_DESC: (Item.borrowed_date.desc(), Item.id.desc()),
+    ItemSort.BORROWED_DATE_ASC: (Item.borrowed_date.asc(), Item.id.asc()),
+    ItemSort.DUE_DATE_ASC: (Item.due_date.asc(), Item.id.asc()),
+    ItemSort.DUE_DATE_DESC: (Item.due_date.desc(), Item.id.desc()),
+    ItemSort.UPDATED_AT_DESC: (Item.updated_at.desc(), Item.id.desc()),
+}
+
+
 def sort_clause(sort: ItemSort) -> tuple[object, ...]:
-    if sort == ItemSort.BORROWED_DATE_ASC:
-        return (Item.borrowed_date.asc(), Item.id.asc())
-    if sort == ItemSort.DUE_DATE_ASC:
-        return (Item.due_date.asc(), Item.id.asc())
-    if sort == ItemSort.DUE_DATE_DESC:
-        return (Item.due_date.desc(), Item.id.desc())
-    if sort == ItemSort.UPDATED_AT_DESC:
-        return (Item.updated_at.desc(), Item.id.desc())
-    return (Item.borrowed_date.desc(), Item.id.desc())
+    return SORT_CLAUSES.get(sort, SORT_CLAUSES[ItemSort.BORROWED_DATE_DESC])
 
 
 def validate_item_state(values: dict[str, object]) -> None:
