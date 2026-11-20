@@ -8,7 +8,7 @@ from pathlib import Path
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--state-dir", default="/home/kouki/dev/kashidashi-app/state")
+    ap.add_argument("--state-dir", default="/home/kouki/clawd/scripts/kashidashi-sync/state")
     ap.add_argument("--consume", action="store_true")
     args = ap.parse_args()
 

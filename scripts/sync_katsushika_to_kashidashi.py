@@ -12,47 +12,123 @@ import argparse
 import html
 import json
 import re
+import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
 import requests
 
-from katsushika_common import (
-    BASE_LIB_URL,
-    DEFAULT_LIBRARY,
-    DedupKey,
-    get_credentials,
-    jp_date_to_iso,
-    key_of,
-    login_session,
-    map_type,
-    normalize_text,
-    parse_detail_fields,
-    parse_dl_map,
-    strip_tags,
-)
 from rip_history_match import find_ripped_at, load_rip_records
 
-__all__ = [
-    "DedupKey",
-    "fetch_current_loans",
-    "get_credentials",
-    "import_items",
-    "jp_date_to_iso",
-    "key_of",
-    "main",
-    "map_type",
-    "normalize_text",
-    "parse_detail_fields",
-    "parse_dl_map",
-    "strip_tags",
-]
+BASE_LIB_URL = "https://www.lib.city.katsushika.lg.jp/"
+
+
+@dataclass(frozen=True)
+class DedupKey:
+    title: str
+    person: str
+    borrowed_date: str
+
+
+def normalize_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return " ".join(value.strip().split()).lower()
+
+
+def key_of(item: dict[str, Any]) -> DedupKey:
+    person = item.get("artist") or item.get("author") or ""
+    return DedupKey(
+        normalize_text(item.get("title")),
+        normalize_text(person),
+        str(item.get("borrowed_date") or "").strip(),
+    )
+
+
+def strip_tags(s: str) -> str:
+    s = re.sub(r"<br\s*/?>", "\n", s, flags=re.I)
+    s = re.sub(r"<[^>]+>", "", s)
+    s = html.unescape(s)
+    return " ".join(s.replace("\xa0", " ").split())
+
+
+def jp_date_to_iso(s: str) -> str:
+    m = re.search(r"(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日", s)
+    if not m:
+        return s
+    y, mo, d = map(int, m.groups())
+    return f"{y:04d}-{mo:02d}-{d:02d}"
+
+
+def parse_dl_map(block: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for m in re.finditer(r"<dt>(.*?)</dt>\s*<dd>(.*?)</dd>", block, re.S | re.I):
+        out[strip_tags(m.group(1))] = strip_tags(m.group(2))
+    return out
+
+
+def parse_detail_fields(html_text: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for m in re.finditer(r'<th[^>]*scope="row"[^>]*>(.*?)</th>\s*<td>(.*?)</td>', html_text, re.S | re.I):
+        k = strip_tags(m.group(1))
+        v = strip_tags(m.group(2))
+        if k and v:
+            fields[k] = v
+    return fields
+
+
+def map_type(fields: dict[str, str]) -> str:
+    val = " ".join([fields.get("資料形態", ""), fields.get("数量", ""), fields.get("タイトル", "")]).lower()
+    if any(k in val for k in ["コンパクトディスク", "cd", "録音"]):
+        return "cd"
+    if any(k in val for k in ["dvd", "ビデオディスク", "映像"]):
+        return "dvd"
+    if any(k in val for k in ["図書", "冊", "文庫", "単行本"]):
+        return "book"
+    if fields.get("出版社") or fields.get("出版者") or fields.get("ページ数") or fields.get("ISBN"):
+        return "book"
+    return "other"
+
+
+def get_credentials(vault: str, item: str) -> tuple[str, str]:
+    cmd = ["op", "item", "get", item, "--vault", vault, "--format", "json"]
+    p = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if p.returncode != 0:
+        raise RuntimeError(f"op item get failed: {p.stderr.strip()}")
+    obj = json.loads(p.stdout)
+
+    username = ""
+    password = ""
+    for f in obj.get("fields", []):
+        fid = (f.get("id") or "").lower()
+        purpose = (f.get("purpose") or "").lower()
+        label = (f.get("label") or "").lower()
+        val = f.get("value") or ""
+        if not username and (purpose == "username" or fid == "username" or "user" in label or "id" in label):
+            username = val
+        if not password and (purpose == "password" or fid == "password" or "pass" in label):
+            password = val
+
+    if not username or not password:
+        raise RuntimeError("Could not resolve username/password from 1Password item")
+    return username, password
 
 
 def fetch_current_loans(username: str, password: str, rip_records: list | None = None) -> list[dict[str, Any]]:
-    s = login_session(username, password)
+    s = requests.Session()
+    login = s.get(urljoin(BASE_LIB_URL, "login"), timeout=20)
+    m = re.search(r'<form[^>]*id="ida"[^>]*action="([^"]+)"', login.text, re.I)
+    if not m:
+        raise RuntimeError("Login form not found")
+    action = m.group(1)
+    s.post(
+        urljoin(login.url, action),
+        data={"textUserId": username, "textPassword": password, "buttonLogin": "ログイン"},
+        timeout=20,
+    )
 
     rentallist = s.get(urljoin(BASE_LIB_URL, "rentallist"), timeout=20)
     sections = re.findall(r'<section class="infotable">(.*?)</section>', rentallist.text, re.S | re.I)
@@ -78,7 +154,7 @@ def fetch_current_loans(username: str, password: str, rip_records: list | None =
         row: dict[str, Any] = {
             "type": item_type,
             "title": title,
-            "library": DEFAULT_LIBRARY,
+            "library": "葛飾区立中央図書館",
             "borrowed_date": borrowed,
             "due_date": due,
         }
@@ -108,17 +184,46 @@ def import_items(base_url: str, items: list[dict[str, Any]], dry_run: bool = Fal
 
     existing = requests.get(items_url, timeout=20)
     existing.raise_for_status()
-    seen = {key_of(i) for i in existing.json()}
+    existing_items = existing.json()
+    seen = {key_of(i) for i in existing_items}
+    existing_by_key = {key_of(i): i for i in existing_items}
 
     inserted: list[dict[str, Any]] = []
+    updated: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
 
     for item in items:
         k = key_of(item)
         if k in seen:
-            skipped.append(item)
+            current = existing_by_key.get(k, {})
+            patch: dict[str, Any] = {}
+
+            # Renewal/extension handling: due_date should be kept in sync for active loans.
+            if item.get("due_date") and item.get("due_date") != current.get("due_date"):
+                patch["due_date"] = item.get("due_date")
+
+            # Keep ripped_at if importer resolved it and DB is still empty.
+            if item.get("ripped_at") and not current.get("ripped_at"):
+                patch["ripped_at"] = item.get("ripped_at")
+
+            if not patch:
+                skipped.append(item)
+                continue
+
+            if dry_run:
+                updated.append({"id": current.get("id"), **patch, "title": item.get("title")})
+                continue
+
+            try:
+                rid = current.get("id")
+                r = requests.patch(f"{items_url}/{rid}", json=patch, timeout=20)
+                r.raise_for_status()
+                updated.append({"id": rid, **patch, "title": item.get("title")})
+            except Exception as e:  # noqa: BLE001
+                errors.append({"item": item, "error": str(e)})
             continue
+
         if dry_run:
             inserted.append(item)
             seen.add(k)
@@ -126,17 +231,21 @@ def import_items(base_url: str, items: list[dict[str, Any]], dry_run: bool = Fal
         try:
             r = requests.post(items_url, json=item, timeout=20)
             r.raise_for_status()
-            inserted.append(r.json())
+            created = r.json()
+            inserted.append(created)
             seen.add(k)
+            existing_by_key[k] = created
         except Exception as e:  # noqa: BLE001
             errors.append({"item": item, "error": str(e)})
 
     return {
         "fetched": len(items),
         "inserted": len(inserted),
+        "updated": len(updated),
         "skipped": len(skipped),
         "errors": len(errors),
         "inserted_items": inserted,
+        "updated_items": updated,
         "skipped_items": skipped,
         "error_items": errors,
     }

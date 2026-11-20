@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Iterable
 
 RIP_ROOT = Path('/mnt/media/audio/_incoming')
-ALIAS_PATH = Path('/home/kouki/dev/kashidashi-app/config/rip-title-aliases.json')
+ALIAS_PATH = Path('/home/kouki/clawd/scripts/kashidashi-sync/config/rip-title-aliases.json')
 
 
 @dataclass
